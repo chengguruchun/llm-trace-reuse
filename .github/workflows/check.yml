@@ -1,0 +1,23 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: aliases and quality gates
+        run: python3 scripts/test-aliases.py
+      - name: redact (publish gate)
+        run: python3 scripts/redact-check.py --publish
+      - name: leave-one-out
+        run: python3 scripts/eval-loo.py
+      - name: hit-report
+        run: python3 scripts/hit-report.py

@@ -1,0 +1,26 @@
+{
+  "id": "2026-01-02-short-slug",
+  "task": "user intent in their words",
+  "retrieved": [],
+  "preferred_path": [
+    "first concrete step",
+    "failure branch and where to read local state next time"
+  ],
+  "decisions": [
+    {
+      "point": "example.fork",
+      "context": "what the user said",
+      "options": ["road A", "road B"],
+      "choice": "road A",
+      "reason": "why",
+      "reused_from": ""
+    }
+  ],
+  "critique": [],
+  "outcome": {
+    "ok": true,
+    "tests": "what you actually ran",
+    "user_feedback": ""
+  },
+  "bad_case": false
+}
