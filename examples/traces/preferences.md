@@ -34,7 +34,7 @@ Format: `## Domain` + `触发：space-separated keywords` + `- items`.
 触发：git-push 推远端 推到远端 推上去 推一下 远端 PAT
 
 - On auth failure, ask the user for a token immediately. Do not guess from old chat.
-- Save the token to `.pathbook/secrets/git.pat` (overwrite). Next push reads that file.
+- Save the token to `.llm-trace-reuse/secrets/git.pat` (overwrite). Next push reads that file.
 - Never put a token in a remote URL, a commit, or an episode body.
 
 ## Distill

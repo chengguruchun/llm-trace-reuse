@@ -41,7 +41,7 @@ PUBLISH_BLOCK = [
 ]
 
 ALLOW = re.compile(
-    r"(redact-check|PATHBOOK_|re\.(?:compile|search|match|finditer))"
+    r"(redact-check|LLM_TRACE_REUSE_|PATHBOOK_|re\.(?:compile|search|match|finditer))"
 )
 
 

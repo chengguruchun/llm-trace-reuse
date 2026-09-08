@@ -1,19 +1,19 @@
 ---
-name: pathbook
+name: llm-trace-reuse
 description: >-
   Procedural memory for coding agents. Route to playbook / reuse / llm, record
-  episodes, distill repeated failures. Triggers: pathbook, playbook, preferred_path,
-  episode, distill, eval-loo, 复盘, 决策复用. Skip only if the user says 这次不记.
+  episodes, distill repeated failures. Triggers: llm-trace-reuse, pathbook, playbook,
+  preferred_path, episode, distill, eval-loo, 复盘, 决策复用. Skip only if the user says 这次不记.
 ---
 
-# pathbook
+# llm-trace-reuse
 
 Local files, not the git history of the host project. This is **not** gradient RL.
 
 ## Start (route first)
 
 ```bash
-python3 .cursor/skills/pathbook/scripts/route.py "<user text>"
+python3 .cursor/skills/llm-trace-reuse/scripts/route.py "<user text>"
 ```
 
 | route | model |
@@ -24,7 +24,7 @@ python3 .cursor/skills/pathbook/scripts/route.py "<user text>"
 
 Honor `preferences` and `avoid` on every route.
 
-- Preferences live in `$PATHBOOK_HOME/preferences.md` (default `.pathbook/preferences.md`).
+- Preferences live in `$LLM_TRACE_REUSE_HOME/preferences.md` (default `.llm-trace-reuse/preferences.md`).
 - Add a domain with `## Name` + `触发：keywords` + `- items`. Re-run `test-aliases.py`.
 - Prefer a new preference (~20 tokens, always on) over a new episode (~400 tokens, maybe retrieved).
 
@@ -50,7 +50,7 @@ Record every fork, including the roads not taken:
 ## End (append)
 
 ```bash
-python3 .cursor/skills/pathbook/scripts/append-episode.py <<'EOF'
+python3 .cursor/skills/llm-trace-reuse/scripts/append-episode.py <<'EOF'
 {
   "id": "2026-01-02-short-slug",
   "task": "user intent",
@@ -76,7 +76,7 @@ EOF
 
 Also:
 
-- `secret_hygiene` ≠ discard-after-use. Ban plaintext in URLs/chat; allow `.pathbook/secrets` overwrite.
+- `secret_hygiene` ≠ discard-after-use. Ban plaintext in URLs/chat; allow `.llm-trace-reuse/secrets` overwrite.
 - `preferred_path` must include the failure branch and where to read the token next time.
 
 Same slot ≥2 → a **shorter** playbook/script, not a longer always-on rule.

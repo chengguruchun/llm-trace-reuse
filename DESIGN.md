@@ -1,6 +1,6 @@
 # Design
 
-pathbook is a **distillation pipeline**, not a memory database. Vector search is the weaker half; the product is promoting traces into preferences and playbooks.
+llm-trace-reuse is a **distillation pipeline**, not a memory database. Vector search is the weaker half; the product is promoting traces into preferences and playbooks.
 
 It is **not** fine-tuning and **not** gradient RL. Say “procedural memory” / “context engineering”.
 

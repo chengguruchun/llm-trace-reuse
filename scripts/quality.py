@@ -33,18 +33,18 @@ CRITIQUE_TEXT_FIELDS = ("mode", "note", "cost", "better", "fix")
 # 历史 jsonl 不改；检索/avoid 出口纠偏，append 时告警。
 _DISCARD_ONLY = re.compile(r"用完即弃|askpass\s*用完|用完即删|discard\s+after\s+use", re.I)
 _LOCAL_STORE = re.compile(
-    r"\.pathbook/secrets|\.local/secrets|本机.*(存|覆盖)|覆盖.*写入|gitignored.*store",
+    r"\.llm-trace-reuse/secrets|\.pathbook/secrets|\.local/secrets|本机.*(存|覆盖)|覆盖.*写入|gitignored.*store",
     re.I,
 )
 SECRET_HYGIENE_BETTER = (
-    "令牌不进 URL/对话明文；写入 .pathbook/secrets（覆盖）下次复用；"
+    "令牌不进 URL/对话明文；写入 .llm-trace-reuse/secrets（覆盖）下次复用；"
     "失败再问用户要新 token"
 )
 
 # preferred_path 写了推/ASKPASS 却没有失败问令牌或本机存 → 闭环不完整。
 _AUTH_MARK = re.compile(r"\b(push|askpass|pat|token)\b|推送?|令牌|远端", re.I)
 _LIFECYCLE_MARK = re.compile(
-    r"save|\.pathbook/secrets|\.local/secrets|失败|问.*token|"
+    r"save|\.llm-trace-reuse/secrets|\.pathbook/secrets|\.local/secrets|失败|问.*token|"
     r"要.*(?:token|pat|令牌)|覆盖|复用|ask.*user",
     re.I,
 )

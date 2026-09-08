@@ -1,0 +1,15 @@
+---
+description: llm-trace-reuse — route first, record at the end
+globs:
+alwaysApply: true
+---
+
+# llm-trace-reuse
+
+1. **Start**: `python3 .cursor/skills/llm-trace-reuse/scripts/route.py "<user text>"`.
+   `playbook` / `reuse` → do not plan; run the short path; call the model only on failure.
+   `llm` → honor `avoid` / `preferred_path` from the router. Do not read jsonl into the chat.
+2. **During**: append a `decisions[]` row at every fork (options, choice, reason, `reused_from`).
+3. **End**: `python3 .cursor/skills/llm-trace-reuse/scripts/append-episode.py` (requires `retrieved` + `preferred_path`). Same `critique.mode` ≥2 → a shorter playbook/script, not a longer always-on rule.
+
+See `SKILL.md`. No secrets in traces. Do not git-add `.llm-trace-reuse/`.

@@ -1,4 +1,4 @@
-# pathbook
+# llm-trace-reuse
 
 **Procedural memory for coding agents.** Route a request to a playbook, reuse a past `preferred_path`, or fall through to the model — then record the decision chain so the next similar request does not start from zero.
 
@@ -23,21 +23,21 @@ Score: `similarity × (0.5 + trust)`. Similarity is IDF-weighted **query coverag
 The repo root **is** a Cursor skill (`SKILL.md` + `scripts/`).
 
 ```bash
-git clone https://github.com/chengguruchun/pathbook.git
-ln -s "$(pwd)/pathbook" /path/to/your-project/.cursor/skills/pathbook
+git clone https://github.com/chengguruchun/llm-trace-reuse.git
+ln -s "$(pwd)/llm-trace-reuse" /path/to/your-project/.cursor/skills/llm-trace-reuse
 ```
 
 Create a gitignored home for *your* traces (never commit real episodes):
 
 ```bash
-mkdir -p /path/to/your-project/.pathbook/playbooks
+mkdir -p /path/to/your-project/.llm-trace-reuse/playbooks
 # copy the example files and edit them
-cp pathbook/examples/traces/preferences.md /path/to/your-project/.pathbook/
+cp llm-trace-reuse/examples/traces/preferences.md /path/to/your-project/.llm-trace-reuse/
 ```
 
-Optional: copy `rules/pathbook.mdc` into `.cursor/rules/` so the agent routes at the start of every task.
+Optional: copy `rules/llm-trace-reuse.mdc` into `.cursor/rules/` so the agent routes at the start of every task.
 
-Override locations with `PATHBOOK_HOME` (traces) and `PATHBOOK_ROOT` (project root).
+Override locations with `LLM_TRACE_REUSE_HOME` (traces) and `LLM_TRACE_REUSE_ROOT` (project root).
 
 ## Use
 
@@ -84,7 +84,7 @@ Every route also emits `preferences` (keyword-matched habits) and `avoid` (past 
 
 ## Name
 
-**pathbook** = `preferred_path` + playbook. The useful artifact is a short executable path, not a memory dump.
+**llm-trace-reuse**: record LLM-agent traces, retrieve similar ones, reuse the `preferred_path`. The useful artifact is a short executable path, not a memory dump.
 
 ## License
 

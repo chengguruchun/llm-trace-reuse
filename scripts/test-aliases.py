@@ -93,9 +93,9 @@ def main() -> int:
     if not discard_secret_without_store(bad_lesson):
         fails.append("discard_secret_without_store should flag 用完即弃")
     fixed = normalize_lesson(bad_lesson)
-    if "【纠偏】" not in fixed or ".pathbook/secrets" not in fixed:
+    if "【纠偏】" not in fixed or ".llm-trace-reuse/secrets" not in fixed:
         fails.append(f"normalize_lesson should append store-reuse: {fixed!r}")
-    ok_lesson = "写入 .pathbook/secrets 覆盖复用；失败再问 token"
+    ok_lesson = "写入 .llm-trace-reuse/secrets 覆盖复用；失败再问 token"
     if discard_secret_without_store(ok_lesson):
         fails.append("local-store advice must not be treated as discard-only")
     if path_missing_auth_lifecycle(["GIT_ASKPASS one-shot", "git push origin"]):
@@ -103,7 +103,7 @@ def main() -> int:
     else:
         fails.append("ASKPASS+push without save should be auth lifecycle gap")
     if path_missing_auth_lifecycle(
-        ["失败问 token", "save .pathbook/secrets", "push 读本地"]
+        ["失败问 token", "save .llm-trace-reuse/secrets", "push 读本地"]
     ):
         fails.append("full auth lifecycle path should not be a gap")
 

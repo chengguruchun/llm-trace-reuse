@@ -28,7 +28,7 @@ def action_for(slot: str, count: int) -> str:
         return "再攒一次"
     if slot in LIFECYCLE_SLOTS:
         return (
-            "写/改 playbook+脚本：失败问 token→.pathbook/secrets 覆盖→下次复用；"
+            "写/改 playbook+脚本：失败问 token→.llm-trace-reuse/secrets 覆盖→下次复用；"
             "secret_hygiene≠用完即弃（禁的是 URL/对话明文）"
         )
     return "count>=2 → 写更短 playbook/脚本，勿加长 alwaysApply"

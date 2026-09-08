@@ -16,7 +16,7 @@ import re
 # 槽位 -> (中文说明, 匹配关键词)。顺序即优先级，先匹配到的胜出。
 SLOTS: list[tuple[str, str, tuple[str, ...]]] = [
     ("trace_hygiene", "轨迹记录本身没做好（漏记、记了不复用、字段没人读）", (
-        "pathbook", "forgot_", "log_without_reuse", "junk_episode",
+        "llm-trace-reuse", "llm_trace", "pathbook", "forgot_", "log_without_reuse", "junk_episode",
         "optional_logging", "lesson_content_lost", "unread_field",
         "quarantine", "stale_reuse", "rule_not_executed", "hidden_cot",
         "bad_case", "轨迹", "复盘",
@@ -34,7 +34,7 @@ SLOTS: list[tuple[str, str, tuple[str, ...]]] = [
     ("wrong_scope", "作用域/范围判断错：漏查入口、看错产物、等待收得太早", (
         "without_checking", "wrong_artifact", "too_early", "scope", "作用域", "范围",
     )),
-    ("secret_hygiene", "密钥进 URL/对话明文；≠禁止本机 .pathbook/secrets 覆盖复用", (
+    ("secret_hygiene", "密钥进 URL/对话明文；≠禁止本机 .llm-trace-reuse/secrets 覆盖复用", (
         "token_in_chat", "secret", "gated_knowledge", "密钥", "令牌", "用完即弃",
     )),
     ("stale_creds", "凭证过期：失败即问用户；本机存覆盖；下次复用（生命周期）", (

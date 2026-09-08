@@ -1,4 +1,4 @@
-.pathbook/
+.llm-trace-reuse/
 .local/
 __pycache__/
 *.py[cod]
