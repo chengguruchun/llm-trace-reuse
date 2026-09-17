@@ -1,0 +1,4 @@
+# Machine-written by distill.py; keep only the gold fixture in git.
+*
+!gold-stale_creds.md
+!.gitignore
