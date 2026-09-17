@@ -79,7 +79,8 @@ Also:
 - `secret_hygiene` ≠ discard-after-use. Ban plaintext in URLs/chat; allow `.llm-trace-reuse/secrets` overwrite.
 - `preferred_path` must include the failure branch and where to read the token next time.
 
-Same slot ≥2 → a **shorter** playbook/script, not a longer always-on rule.
+Same slot ≥2 (lifecycle `secret_hygiene` / `stale_creds` ≥1) → `distill.py` writes `playbooks/_drafts/*.md` (route ignores `_` dirs). Promote with `promote-playbook.py` after the quality gate; then add alias + a CASES negative row.
+`critique.mode` must be a slot name — prose / unclassified is rejected on append unless `--force`.
 
 Weekly: `eval-loo.py`. Routing health: `hit-report.py [--verbose]`.
 

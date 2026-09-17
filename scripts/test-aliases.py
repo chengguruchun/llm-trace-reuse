@@ -7,7 +7,11 @@ Add a case here whenever hit-report.py surfaces a false positive.
 """
 from __future__ import annotations
 
+import json
+import os
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -19,6 +23,13 @@ from quality import (  # noqa: E402
     normalize_lesson,
     path_missing_auth_lifecycle,
 )
+
+SCRIPTS = Path(__file__).resolve().parent
+REPO = SCRIPTS.parent
+APPEND = SCRIPTS / "append-episode.py"
+DISTILL = SCRIPTS / "distill.py"
+PROMOTE = SCRIPTS / "promote-playbook.py"
+GOLD = REPO / "examples" / "traces" / "playbooks" / "_drafts" / "gold-stale_creds.md"
 
 # (query, expected alias or None)
 CASES = [
@@ -57,6 +68,215 @@ PREF_CASES = [
     ("给你 token 推一下", "Git push"),
     ("蒸馏失败模式", "Distill"),
 ]
+
+
+def _run(cmd: list[str], env: dict | None = None, input_text: str | None = None) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        cmd,
+        cwd=str(REPO),
+        env=env,
+        input=input_text,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def _base_ep(**kwargs) -> dict:
+    ep = {
+        "id": "test-ep",
+        "task": "test task",
+        "retrieved": [],
+        "preferred_path": ["python3 scripts/test-aliases.py", "check exit 0"],
+        "decisions": [],
+        "outcome": {"ok": True, "tests": ""},
+        "critique": [],
+    }
+    ep.update(kwargs)
+    return ep
+
+
+def test_append_mode_gate(fails: list[str]) -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        home = Path(tmp)
+        env = {**os.environ, "LLM_TRACE_REUSE_HOME": str(home)}
+
+        prose = _base_ep(
+            id="t-prose",
+            critique=[{
+                "mode": "这是一段很长的散文描述，说明凭证过期以后应该怎么处理才对啊",
+                "better": "ask then store",
+            }],
+        )
+        r = _run([sys.executable, str(APPEND)], env=env, input_text=json.dumps(prose, ensure_ascii=False))
+        if r.returncode != 2:
+            fails.append(f"append prose mode: expected exit 2, got {r.returncode}")
+
+        unc = _base_ep(
+            id="t-unc",
+            critique=[{"mode": "totally_unknown_xyz", "better": "x"}],
+        )
+        r = _run([sys.executable, str(APPEND)], env=env, input_text=json.dumps(unc, ensure_ascii=False))
+        if r.returncode != 2:
+            fails.append(f"append unclassified mode: expected exit 2, got {r.returncode}")
+
+        ok = _base_ep(
+            id="t-slot",
+            critique=[{"mode": "stale_creds", "cost": "loop", "better": "ask token"}],
+        )
+        r = _run([sys.executable, str(APPEND)], env=env, input_text=json.dumps(ok, ensure_ascii=False))
+        if r.returncode != 0:
+            fails.append(f"append slot name: expected 0, got {r.returncode}: {r.stderr}")
+
+        # --force warns but writes
+        r = _run(
+            [sys.executable, str(APPEND), "--force"],
+            env=env,
+            input_text=json.dumps(prose, ensure_ascii=False),
+        )
+        if r.returncode != 0:
+            fails.append(f"append --force prose: expected 0, got {r.returncode}: {r.stderr}")
+        if "WARN" not in (r.stderr or ""):
+            fails.append("append --force prose: expected WARN on stderr")
+        written = list(home.glob("*.jsonl"))
+        if not written:
+            fails.append("append --force: nothing written to traces home")
+
+
+def test_distill_drafts(fails: list[str]) -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        home = Path(tmp)
+        # Two episodes same non-lifecycle slot → ripe at 2; one lifecycle → ripe at 1
+        day = home / "2026-01-01.jsonl"
+        eps = [
+            {
+                "id": "ep-a",
+                "task": "push after auth fail",
+                "retrieved": [],
+                "preferred_path": [
+                    "git push origin HEAD",
+                    "失败问 token",
+                    "save .llm-trace-reuse/secrets/git.pat",
+                    "GIT_ASKPASS retry push",
+                ],
+                "critique": [{"mode": "stale_creds", "cost": "keychain loop", "better": "ask then overwrite store"}],
+                "outcome": {"ok": True, "tests": ""},
+            },
+            {
+                "id": "ep-b1",
+                "task": "env pin sdk",
+                "retrieved": [],
+                "preferred_path": ["dotnet --version", "pin global.json sdk"],
+                "critique": [{"mode": "env_setup", "cost": "wrong sdk", "better": "pin global.json"}],
+                "outcome": {"ok": True, "tests": ""},
+            },
+            {
+                "id": "ep-b2",
+                "task": "fix sdk mismatch",
+                "retrieved": [],
+                "preferred_path": ["check global.json", "dotnet build"],
+                "critique": [{"mode": "env_setup", "cost": "rebuild", "better": "pin sdk in global.json"}],
+                "outcome": {"ok": True, "tests": ""},
+            },
+            # Same episode id twice in one file should still count once for secret_hygiene
+            {
+                "id": "ep-sec",
+                "task": "token hygiene",
+                "retrieved": [],
+                "preferred_path": [
+                    "never put token in URL",
+                    "write .llm-trace-reuse/secrets/git.pat",
+                    "失败再问 token",
+                ],
+                "critique": [
+                    {"mode": "secret_hygiene", "better": "store locally"},
+                    {"mode": "secret_hygiene", "better": "store locally again"},
+                ],
+                "outcome": {"ok": True, "tests": ""},
+            },
+        ]
+        day.write_text("".join(json.dumps(e, ensure_ascii=False) + "\n" for e in eps), encoding="utf-8")
+
+        r = _run([sys.executable, str(DISTILL), str(home)])
+        if r.returncode != 0:
+            fails.append(f"distill exit {r.returncode}: {r.stderr}")
+            return
+        try:
+            summary = json.loads(r.stdout)
+        except json.JSONDecodeError:
+            fails.append(f"distill stdout not JSON: {r.stdout[:200]!r}")
+            return
+
+        by_slot = {row["slot"]: row for row in summary.get("distill") or []}
+        if by_slot.get("stale_creds", {}).get("count") != 1:
+            fails.append(f"distill stale_creds count want 1: {by_slot.get('stale_creds')}")
+        if by_slot.get("secret_hygiene", {}).get("count") != 1:
+            fails.append(
+                f"distill per-episode counting: secret_hygiene want 1, got {by_slot.get('secret_hygiene')}"
+            )
+        if by_slot.get("env_setup", {}).get("count") != 2:
+            fails.append(f"distill env_setup count want 2: {by_slot.get('env_setup')}")
+
+        drafts = summary.get("drafts_written") or []
+        stale_draft = home / "playbooks" / "_drafts" / "stale_creds.md"
+        if not stale_draft.is_file():
+            fails.append(f"distill should write lifecycle draft at {stale_draft}; drafts={drafts}")
+        elif '"status: draft"' not in stale_draft.read_text(encoding="utf-8") and "status: draft" not in stale_draft.read_text(encoding="utf-8"):
+            fails.append("stale_creds draft missing status: draft frontmatter")
+
+
+def test_promote(fails: list[str]) -> None:
+    if not GOLD.is_file():
+        fails.append(f"missing gold fixture: {GOLD}")
+        return
+    with tempfile.TemporaryDirectory() as tmp:
+        drafts = Path(tmp) / "playbooks" / "_drafts"
+        drafts.mkdir(parents=True)
+        gold_copy = drafts / "gold-stale_creds.md"
+        gold_copy.write_text(GOLD.read_text(encoding="utf-8"), encoding="utf-8")
+
+        r = _run([sys.executable, str(PROMOTE), str(gold_copy)])
+        if r.returncode != 0:
+            fails.append(f"promote gold: expected 0, got {r.returncode}: {r.stderr}")
+        active = Path(tmp) / "playbooks" / "gold-stale_creds.md"
+        if not active.is_file():
+            fails.append(f"promote gold: missing active {active}")
+        elif "status: active" not in active.read_text(encoding="utf-8"):
+            fails.append("promote gold: active file missing status: active")
+        if gold_copy.exists():
+            fails.append("promote gold: draft should be moved/removed")
+        if "checklist" not in (r.stdout or ""):
+            fails.append("promote gold: expected checklist on stdout")
+
+        # Incomplete draft must fail
+        bad = drafts / "incomplete.md"
+        bad.write_text(
+            "---\nstatus: draft\nslot: env_setup\nkind: playbook\n"
+            "source_episodes: [x]\ncluster: default\nincomplete: true\n---\n\n"
+            "# bad\n\n## Steps\n\n1. a\n2. b\n\n## Avoid\n\n- x\n",
+            encoding="utf-8",
+        )
+        r = _run([sys.executable, str(PROMOTE), str(bad)])
+        if r.returncode == 0:
+            fails.append("promote incomplete: expected nonzero")
+
+
+def test_playbook_loader_skips_drafts(fails: list[str]) -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "playbooks"
+        (root / "_drafts").mkdir(parents=True)
+        (root / "active.md").write_text("# active\n", encoding="utf-8")
+        (root / "_drafts" / "hidden.md").write_text("# draft\n", encoding="utf-8")
+        (root / "_archive").mkdir()
+        (root / "_archive" / "old.md").write_text("# old\n", encoding="utf-8")
+        found = RT.iter_playbooks(root)
+        names = {p.name for p in found}
+        if "active.md" not in names:
+            fails.append(f"iter_playbooks missed active.md: {names}")
+        if "hidden.md" in names:
+            fails.append("iter_playbooks must skip _drafts")
+        if "old.md" in names:
+            fails.append("iter_playbooks must skip _archive")
 
 
 def main() -> int:
@@ -112,11 +332,17 @@ def main() -> int:
     if next((n for p, n in RT.ALIASES if p.search(oss)), None) == "git-push":
         fails.append("open-source request must not alias to git-push")
 
+    # --- distill SOP extras (beyond the original 31) ---
+    test_append_mode_gate(fails)
+    test_distill_drafts(fails)
+    test_promote(fails)
+    test_playbook_loader_skips_drafts(fails)
+
     for f in fails:
         print("FAIL " + f, file=sys.stderr)
     extra = 6
     total = len(CASES) + len(PREF_CASES) + len(JUNK) + len(NOT_JUNK) + extra
-    print(f"{total} checks, {len(fails)} failed")
+    print(f"{total} base checks + distill-sop extras, {len(fails)} failed")
     return 1 if fails else 0
 
 

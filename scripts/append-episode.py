@@ -7,6 +7,7 @@ Usage:
   EOF
 
   python3 scripts/append-episode.py path/to/ep.json
+  python3 scripts/append-episode.py --force path/to/ep.json
 
 Exit 2 = validation failed (nothing written).
 """
@@ -86,13 +87,65 @@ def validate(ep: dict) -> list[str]:
     return errs
 
 
+def normalize_critique_modes(ep: dict, force: bool) -> str | None:
+    """Reject prose / unclassified mode unless --force; normalize to slot names.
+
+    Returns an error message to fail with, or None when ok to proceed.
+    """
+    if isinstance(ep.get("critique"), dict):
+        ep["critique"] = [ep["critique"]]
+
+    for c in ep.get("critique") or []:
+        if not isinstance(c, dict):
+            continue
+        mode = str(c.get("mode") or "").strip()
+        if not mode:
+            continue
+        slot = slot_of(mode)
+        bad = looks_like_prose(mode) or slot == UNCLASSIFIED
+        if bad:
+            if looks_like_prose(mode):
+                msg = (
+                    f"mode 写成了散文（{len(mode)} 字），精确计数永远不会重复 → 蒸馏不触发。"
+                    f"请用槽位名并把细节移到 better/fix。推断槽位={slot}；"
+                    f"可选：{', '.join(SLOT_NAMES)}"
+                )
+            else:
+                msg = (
+                    f"mode「{mode}」归不到任何槽位（unclassified），蒸馏时会被单独计数。"
+                    f"补 modes.py 的关键词，或改用：{', '.join(SLOT_NAMES)}"
+                )
+            if force:
+                print(f"append-episode: WARN {msg} (--force，仍写入)", file=sys.stderr)
+            else:
+                return msg + "。确实要留用 --force"
+
+        if slot != UNCLASSIFIED and mode != slot:
+            c["mode_raw"] = mode
+            c["mode"] = slot
+
+        better = str(c.get("better") or c.get("fix") or c.get("note") or "")
+        if slot_of(str(c.get("mode") or "")) == "secret_hygiene" and discard_secret_without_store(better):
+            c["better"] = SECRET_HYGIENE_BETTER
+            print(
+                "append-episode: WARN secret_hygiene 写成了「用完即弃」且无本机存储；"
+                f"已改写 better → {SECRET_HYGIENE_BETTER}",
+                file=sys.stderr,
+            )
+    return None
+
+
 def main() -> int:
-    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+    argv = sys.argv[1:]
+    if "-h" in argv or "--help" in argv:
         print(__doc__)
         return 0
 
-    if len(sys.argv) > 1:
-        raw = Path(sys.argv[1]).read_text(encoding="utf-8")
+    force = "--force" in argv
+    paths = [a for a in argv if a != "--force"]
+
+    if paths:
+        raw = Path(paths[0]).read_text(encoding="utf-8")
     else:
         raw = sys.stdin.read()
 
@@ -108,42 +161,14 @@ def main() -> int:
     if errs:
         return fail("; ".join(errs))
 
-    if is_junk(ep) and "--force" not in sys.argv:
+    if is_junk(ep) and not force:
         return fail(f"junk episode (非任务记录且无信号)：{why_thin(ep)}。确实要留用 --force")
     if is_thin(ep):
         print(f"append-episode: WARN thin episode — {why_thin(ep)}", file=sys.stderr)
 
-    if isinstance(ep.get("critique"), dict):
-        ep["critique"] = [ep["critique"]]
-
-    for c in ep.get("critique") or []:
-        if not isinstance(c, dict):
-            continue
-        mode = str(c.get("mode") or "").strip()
-        if not mode:
-            continue
-        slot = slot_of(mode)
-        if looks_like_prose(mode):
-            print(
-                f"append-episode: WARN mode 写成了散文（{len(mode)} 字），"
-                f"精确计数永远不会重复 → 蒸馏不触发。请用槽位名并把细节移到 better/fix。"
-                f"推断槽位={slot}；可选：{', '.join(SLOT_NAMES)}",
-                file=sys.stderr,
-            )
-        elif slot == UNCLASSIFIED:
-            print(
-                f"append-episode: WARN mode「{mode}」归不到任何槽位，"
-                f"蒸馏时会被单独计数。补 modes.py 的关键词，或改用：{', '.join(SLOT_NAMES)}",
-                file=sys.stderr,
-            )
-        better = str(c.get("better") or c.get("fix") or c.get("note") or "")
-        if slot == "secret_hygiene" and discard_secret_without_store(better):
-            c["better"] = SECRET_HYGIENE_BETTER
-            print(
-                "append-episode: WARN secret_hygiene 写成了「用完即弃」且无本机存储；"
-                f"已改写 better → {SECRET_HYGIENE_BETTER}",
-                file=sys.stderr,
-            )
+    mode_err = normalize_critique_modes(ep, force)
+    if mode_err:
+        return fail(mode_err)
 
     if path_missing_auth_lifecycle(ep.get("preferred_path") or []):
         print(
