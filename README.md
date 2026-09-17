@@ -12,8 +12,8 @@ This is **not** gradient RL. It does not update model weights. It is retrieval +
 preferences   always-on tool choices     (~20 tokens each)
 playbooks     alias → skip planning      (SOPs)
 episodes      retrieve × trust           (long tail)
-      ↓ same critique slot ≥ 2
-   shorter playbook / script
+      ↓ same critique slot ≥ 2 (lifecycle ≥ 1)
+   playbooks/_drafts → promote → active playbook
 ```
 
 Score: `similarity × (0.5 + trust)`. Similarity is IDF-weighted **query coverage** (long write-ups are not punished). Trust is Laplace-smoothed from later `retrieved[].used` plus that turn's `outcome.ok`. Unproven episodes rank exactly as before.
@@ -59,7 +59,8 @@ EOF
 
 python3 scripts/eval-loo.py
 python3 scripts/hit-report.py
-python3 scripts/distill.py
+python3 scripts/distill.py                  # writes playbooks/_drafts when ripe
+python3 scripts/promote-playbook.py path/to/_drafts/foo.md
 python3 scripts/redact-check.py --publish
 python3 scripts/test-aliases.py
 ```

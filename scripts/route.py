@@ -100,6 +100,25 @@ def preferences(query: str) -> list[dict]:
     return out
 
 
+def iter_playbooks(playbooks_dir: Path | None = None) -> list[Path]:
+    """Active playbooks only — skip `_drafts/` and any directory starting with `_`.
+
+    Distill writes machine drafts under playbooks/_drafts/; route and loaders
+    must never treat those as live SOPs.
+    """
+    root = playbooks_dir if playbooks_dir is not None else traces_dir() / "playbooks"
+    if not root.is_dir():
+        return []
+    out: list[Path] = []
+    for p in sorted(root.rglob("*.md")):
+        rel = p.relative_to(root)
+        # Skip files inside _* directories (e.g. _drafts/foo.md).
+        if any(part.startswith("_") for part in rel.parts[:-1]):
+            continue
+        out.append(p)
+    return out
+
+
 def compact_avoid(hit: dict) -> list[dict]:
     out = []
     for kind, key in (("failure", "avoid"), ("lesson", "reuse")):

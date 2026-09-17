@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from paths import traces_dir  # noqa: E402
 from retrieve import REUSE_MIN_SCORE, blob, idf_map, similarity, tokens  # noqa: E402
 from retrieve import load_episodes as _load  # noqa: E402
+from route import iter_playbooks  # noqa: E402
 
 STRONG_SCORE = round(REUSE_MIN_SCORE * 1.6, 2)
 
@@ -50,7 +51,7 @@ def main() -> int:
         else:
             buckets["miss"] += 1
 
-    playbooks = list((root / "playbooks").glob("*.md")) if (root / "playbooks").exists() else []
+    playbooks = iter_playbooks(root / "playbooks")
     n = len(eps)
     print(json.dumps({
         "episodes_with_id": n,
